@@ -145,7 +145,6 @@ class Driver:
         Returns:
             None
         """
-        resting_order_queue = self.generate_initial_requests()
 
         requests = self.generate_initial_requests()
 
@@ -165,7 +164,7 @@ class Driver:
         while True: 
             
             try: 
-                order = resting_order_queue.pop(0)
+                order = requests.pop(0)
                 self.message_bus.publish("request", order)
 
             except IndexError: 
