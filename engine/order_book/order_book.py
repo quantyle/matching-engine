@@ -62,41 +62,35 @@ class OrderBook:
             del self._asks_positions[best_ask_order.order_id]
             return best_ask_order
 
-    def delete_order(self, cancel_request: CancelOrderRequest) -> None:
+    def delete_order(self, order_id: int) -> None:
         """
         Deletes a specific order from the book at any position (price level).
 
         Args:
-            cancel_request (CancelOrderRequest): A request to cancel the order.
+            order_id (int): The order_id of the order to cancel.
         """
 
-        # @NOTE We leverage a hashmap here to keep track of order_id's and their postions for O(log(n)) deletion, instead of O(n)
+        # @NOTE We leverage a hashmap here to keep track of order_id's and their positions for O(log(n)) deletion, instead of O(n)
         # @NOTE This is important since many requests in traditional markets are requests for deletions 
 
-        order_id = cancel_request.order_id
-        
-        # Check if the order id is in the bids
         if order_id in self._bids_positions:
             position = self._bids_positions.pop(order_id)
             if position < len(self.bids):
-                heapq.heappop(self.bids)
+                last_order = self.bids.pop()
                 if position != len(self.bids):
-                    last_order = self.bids.pop()
                     self.bids[position] = last_order
                     self._bids_positions[last_order.order_id] = position
 
-        # check if the order id is in the asks 
         elif order_id in self._asks_positions:
             position = self._asks_positions.pop(order_id)
             if position < len(self.asks):
-                heapq.heappop(self.asks)
+                last_order = self.asks.pop()
                 if position != len(self.asks):
-                    last_order = self.asks.pop()
                     self.asks[position] = last_order
                     self._asks_positions[last_order.order_id] = position
-        else: 
+        else:
             raise KeyError("order_id not found in order book")
-        
+            
 
     def get_best_bid(self) -> Optional[Order]:
         """

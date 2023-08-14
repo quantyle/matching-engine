@@ -8,10 +8,12 @@ from ..requests.add_order_request import AddOrderRequest
 from ..requests.cancel_order_request import CancelOrderRequest
 from ..requests.order_book_snapshot_request import OrderBookSnapshotRequest
 from ..message_bus.message_bus import MessageBus
+# events
 from ..events.trade_event import TradeEvent
 from ..events.order_fully_filled import OrderFullyFilled
 from ..events.order_partially_filled import OrderPartiallyFilled
 from ..events.order_book_snapshot import OrderBookSnapshot
+from ..events.order_cancel_event import OrderCancelEvent
 
 class MatchEngine(multiprocessing.Process):
     """
@@ -41,6 +43,13 @@ class MatchEngine(multiprocessing.Process):
             # Process the incoming request
             self.process(request)
 
+
+            if self.order_book.validate_book():
+                print("book valid")
+            else:
+                print("book invalid")
+
+
     def process(self, request: Union[AddOrderRequest, CancelOrderRequest, OrderBookSnapshotRequest]) -> None:
         """
         Process any incoming request.
@@ -60,7 +69,8 @@ class MatchEngine(multiprocessing.Process):
 
         # Check if the request is one to cancel the order
         elif isinstance(request, CancelOrderRequest):
-            self.order_book.delete_order(request)
+            self.order_book.delete_order(request.order_id)
+            self.emit_cancel_order(request)
 
         # Check if the request is one to get a snapshot of the orderbook
         elif isinstance(request, OrderBookSnapshotRequest):
@@ -83,7 +93,7 @@ class MatchEngine(multiprocessing.Process):
         elif request.price == None:
             market_order = Order(**vars(request))
             self.process_market_order(market_order)
-
+        
     def process_limit_order(self, limit_order: Order) -> None:
         """
         Process a limit order by adding it to the order book and performing matching.
@@ -211,6 +221,10 @@ class MatchEngine(multiprocessing.Process):
         # Publish a message for the fully filled order
         response = OrderPartiallyFilled(order_id, remaining_quantity)
         self.message_bus.publish("event", response)
+    
+    def emit_cancel_order(self, message: OrderCancelEvent) -> None:
+        response = OrderCancelEvent(**vars(message))
+        self.message_bus.publish("event", response)
 
     def process_order_book_snapshot(self) -> None:
         """
@@ -220,9 +234,10 @@ class MatchEngine(multiprocessing.Process):
             None
         """
 
-        response = ""
+        response = "\n"
         for ask in self.order_book.get_asks():
             response += f"#S0{ask.order_id}\t{ask.price}\t{ask.quantity}\n"
+        response += "\n"
         for bid in self.order_book.get_bids():
             response += f"#B0{bid.order_id}\t{bid.price}\t{bid.quantity}\n"
 
