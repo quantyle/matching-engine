@@ -4,7 +4,7 @@ A matching engine is a key part of modern electronic exchanges. This project imp
 
 ## Requirements
 
-Python3.11 or similar version
+Python3.7+ 
 
 ## Usage
 
