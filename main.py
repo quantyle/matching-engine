@@ -3,11 +3,17 @@ main.py: A driver program used to test the matching engine
 """
 
 import time
+from typing import Union
 from engine.requests.add_order_request import AddOrderRequest
 from engine.requests.cancel_order_request import CancelOrderRequest
 from engine.requests.order_book_snapshot_request import OrderBookSnapshotRequest
 from engine.match_engine.match_engine import MatchEngine
 from engine.message_bus.message_bus import MessageBus
+# events
+from engine.events.trade_event import TradeEvent
+from engine.events.order_fully_filled import OrderFullyFilled
+from engine.events.order_partially_filled import OrderPartiallyFilled
+from engine.events.order_book_snapshot import OrderBookSnapshot
 
 # class InputOrderRequestGenerator:
 #     def generate_random_order(self, order_id):
@@ -80,11 +86,20 @@ class Driver:
                 pass
 
             self.message_bus.publish("request", OrderBookSnapshotRequest())
-
             response = responses.get()
-            print(response)
-
+            self.print_event(response)
             time.sleep(self.delay)
+
+    def print_event(self, message: Union[TradeEvent, OrderPartiallyFilled, OrderFullyFilled, OrderBookSnapshot]) -> None:
+        if isinstance(message, TradeEvent):
+            print(f"[TRADE] price: {message.price}, quantity: {message.quantity})")
+        elif isinstance(message, OrderPartiallyFilled):
+            print(f"[PARTIAL_FILL] order_id({message.order_id}, remaining_quantity: {message.remaining_quantity})")
+        elif isinstance(message, OrderFullyFilled):
+            print(f"[FULL_FILL]: order_id {message.order_id}")
+        elif isinstance(message, OrderBookSnapshot):
+            print(f"[BOOK]: \n{message.snapshot}")
+
 
 
 # Driver application

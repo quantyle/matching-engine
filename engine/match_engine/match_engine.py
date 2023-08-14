@@ -11,6 +11,7 @@ from ..message_bus.message_bus import MessageBus
 from ..events.trade_event import TradeEvent
 from ..events.order_fully_filled import OrderFullyFilled
 from ..events.order_partially_filled import OrderPartiallyFilled
+from ..events.order_book_snapshot import OrderBookSnapshot
 
 class MatchEngine(multiprocessing.Process):
     """
@@ -117,21 +118,21 @@ class MatchEngine(multiprocessing.Process):
                 bid_order.quantity -= trade_quantity
                 ask_order.quantity -= trade_quantity
 
-                # Emit trade message
-                self.emit_message("Trade", bid_order,
-                                  ask_order, trade_quantity)
-
                 if bid_order.quantity > 0:
                     # Add partially filled order back to the book
                     self.order_book.add_order(bid_order)
+                    self.emit_partial_fill(bid_order.order_id, bid_order.quantity)
                 else:
-                    self.emit_message("OrderFullyFilled", bid_order)
+                    # Emit fully filled message
+                    self.emit_fully_filled(bid_order.order_id)
 
                 if ask_order.quantity > 0:
                     # Add partially filled order back to the book
                     self.order_book.add_order(ask_order)
+                    self.emit_partial_fill(ask_order.order_id, ask_order.quantity)
                 else:
-                    self.emit_message("OrderFullyFilled", bid_order, ask_order)
+                    # Emit fully filled message
+                    self.emit_fully_filled(ask_order.order_id)
 
             else:
                 break
@@ -154,13 +155,15 @@ class MatchEngine(multiprocessing.Process):
 
                 if resting_order.quantity <= market_order.quantity:
                     # Fully fill resting order
-                    self.emit_message("OrderFullyFilled", resting_order)
+                    self.emit_trade(resting_order.price, market_order.quantity)
+                    self.emit_fully_filled(resting_order.order_id)
                     market_order.quantity -= resting_order.quantity
                 else:
                     # Partially fill resting order
                     resting_order.quantity -= market_order.quantity
                     self.order_book.add_order(resting_order)
-                    self.emit_message("OrderPartiallyFilled", resting_order)
+                    self.emit_trade()
+                    self.emit_partial_fill(resting_order.order_id, resting_order.quantity)
                     market_order.quantity = 0
 
             if market_order.quantity > 0:
@@ -174,17 +177,40 @@ class MatchEngine(multiprocessing.Process):
 
                 if resting_order.quantity <= market_order.quantity:
                     # Fully fill resting order
-                    self.emit_message("OrderFullyFilled", resting_order)
+                    self.emit_trade(resting_order.price, market_order.quantity)
+                    self.emit_fully_filled(resting_order.order_id)
                     market_order.quantity -= resting_order.quantity
                 else:
                     # Partially fill resting order
                     resting_order.quantity -= market_order.quantity
                     self.order_book.add_order(resting_order)
-                    self.emit_message("OrderPartiallyFilled", resting_order)
+                    self.emit_trade()
+                    self.emit_partial_fill(resting_order.order_id, resting_order.quantity)
                     market_order.quantity = 0
 
             if market_order.quantity > 0:
                 self.order_book.add_order(market_order)
+
+
+
+    def emit_trade(self, price: float, quantity: int) -> None:
+
+        # publish a message for a trade event
+        response = TradeEvent(price, quantity)
+        self.message_bus.publish("event", response)
+        
+
+    def emit_fully_filled(self, order_id: int) -> None:
+            
+        # Publish a message for the fully filled order
+        response = OrderFullyFilled(order_id)
+        self.message_bus.publish("event", response)
+
+    def emit_partial_fill(self, order_id: int, remaining_quantity) -> None:
+
+        # Publish a message for the fully filled order
+        response = OrderPartiallyFilled(order_id, remaining_quantity)
+        self.message_bus.publish("event", response)
 
     def process_order_book_snapshot(self) -> None:
         """
@@ -193,37 +219,14 @@ class MatchEngine(multiprocessing.Process):
         Returns:
             None
         """
+
         response = ""
         for ask in self.order_book.get_asks():
             response += f"#S0{ask.order_id}\t{ask.price}\t{ask.quantity}\n"
         for bid in self.order_book.get_bids():
             response += f"#B0{bid.order_id}\t{bid.price}\t{bid.quantity}\n"
-        
-        self.message_bus.publish("event", response)
 
-    def emit_message(self, message_type: str, buy_order: Order, sell_order: Order=None, trade_quantity=None) -> None:
-
-
-        if message_type == "Trade":
-            # publih a message for a trade event
-            response = TradeEvent(buy_order.price, trade_quantity)
-            self.message_bus.publish("event", response)
-        
-        if message_type == "OrderFullyFilled":
-            # Publish a message for the fully filled order
-            response = OrderFullyFilled(buy_order.order_id)
-            self.message_bus.publish("event", response)
-            
-        
-        elif message_type == "OrderPartiallyFilled":
-            # Publish a message for the buy order partial fill
-            response = OrderPartiallyFilled(order_id=buy_order.order_id, remaining_quantity=buy_order.quantity)            
-            self.message_bus.publish("event", response)
-
-            # Publish a message for the sell order partial full
-            response = OrderPartiallyFilled(order_id=sell_order.order_id, remaining_quantity=sell_order.quantity)
-            self.message_bus.publish("event", response)
-        
+        self.message_bus.publish("event", OrderBookSnapshot(response))
 
     def next_order_id(self) -> int:
         return len(self.order_book.asks) + len(self.order_book.bids)
