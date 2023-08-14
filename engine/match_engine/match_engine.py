@@ -43,11 +43,10 @@ class MatchEngine(multiprocessing.Process):
             # Process the incoming request
             self.process(request)
 
-
-            if self.order_book.validate_book():
-                print("book valid")
-            else:
-                print("book invalid")
+            # if self.order_book.validate_book():
+            #     print("book valid")
+            # else:
+            #     print("book invalid")
 
 
     def process(self, request: Union[AddOrderRequest, CancelOrderRequest, OrderBookSnapshotRequest]) -> None:
@@ -127,6 +126,11 @@ class MatchEngine(multiprocessing.Process):
                 # Update order quantities
                 bid_order.quantity -= trade_quantity
                 ask_order.quantity -= trade_quantity
+
+                # Emit a Trade event
+                self.emit_trade(bid_order.price, trade_quantity)
+                self.emit_trade(ask_order.price, trade_quantity)
+
 
                 if bid_order.quantity > 0:
                     # Add partially filled order back to the book

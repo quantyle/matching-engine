@@ -9,7 +9,10 @@ Python3.11 or similar version
 ## Usage
 
 1. open project `cd matching-engine`
-2. run main file `python3 main.py`
+2. run main file `python3 main.py {test_type}`
+3. To stop the program, you can use the keyboard shortcut `Ctrl+C` in the terminal where the program is running.
+
+For usage help run `python3 main.py -h`
 
 ## License
 
