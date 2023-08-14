@@ -204,21 +204,45 @@ class MatchEngine(multiprocessing.Process):
 
 
     def emit_trade(self, price: float, quantity: int) -> None:
+        """
+        Publishes a trade message to the message bus.
 
-        # publish a message for a trade event
+        Args:
+            price (float): Indicates the price at which the trade happened.
+            quantity (int): the amount that traded.
+
+        Returns:
+            None
+        """
+
         response = TradeEvent(price, quantity)
         self.message_bus.publish("event", response)
         
 
     def emit_fully_filled(self, order_id: int) -> None:
-            
-        # Publish a message for the fully filled order
+        """
+        Publishes a fully filled message to the message bus
+
+        Args:
+            order_id (int): Unique identifier of the order that was fully filled.
+
+        Returns:
+            None
+        """
+
         response = OrderFullyFilled(order_id)
         self.message_bus.publish("event", response)
 
-    def emit_partial_fill(self, order_id: int, remaining_quantity) -> None:
+    def emit_partial_fill(self, order_id: int, remaining_quantity: int) -> None:
+        """
+        Publishes a partially filled message to the message bus
 
-        # Publish a message for the fully filled order
+        Args:
+            order_id (int): Unique identifier of the order that was fully filled.
+            remaining_quantity (int): The amount remaining. 
+        Returns:
+            None
+        """
         response = OrderPartiallyFilled(order_id, remaining_quantity)
         self.message_bus.publish("event", response)
     
@@ -246,3 +270,12 @@ class MatchEngine(multiprocessing.Process):
     def next_order_id(self) -> int:
         return len(self.order_book.asks) + len(self.order_book.bids)
 
+
+    def reset_book(self) -> None:
+        """
+        Resets the order book, for testing purposes mostly 
+
+        Returns:
+            None
+        """
+        self.order_book = OrderBook()
