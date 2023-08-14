@@ -10,6 +10,17 @@ class OrderPartiallyFilled:
     """
 
     def __init__(self, order_id: int, remaining_quantity: int):
+        """
+        Initialize a new OrderFullyFilled instance.
+
+        Args:
+            order_id (int): Unique identifier for the order.
+            remaining_quantity (int): The remaining quantity after the partial fill.
+        
+        Raises:
+            TypeError: if any argument has an incorrect type.
+        """
+
         if not isinstance(order_id, int):
             raise TypeError("price must be a float")
         

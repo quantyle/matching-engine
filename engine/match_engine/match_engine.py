@@ -8,7 +8,9 @@ from ..requests.add_order_request import AddOrderRequest
 from ..requests.cancel_order_request import CancelOrderRequest
 from ..requests.order_book_snapshot_request import OrderBookSnapshotRequest
 from ..message_bus.message_bus import MessageBus
-
+from ..events.trade_event import TradeEvent
+from ..events.order_fully_filled import OrderFullyFilled
+from ..events.order_partially_filled import OrderPartiallyFilled
 
 class MatchEngine(multiprocessing.Process):
     """
@@ -129,7 +131,7 @@ class MatchEngine(multiprocessing.Process):
                     # Add partially filled order back to the book
                     self.order_book.add_order(ask_order)
                 else:
-                    self.emit_message("OrderFullyFilled", ask_order)
+                    self.emit_message("OrderFullyFilled", bid_order, ask_order)
 
             else:
                 break
@@ -199,17 +201,30 @@ class MatchEngine(multiprocessing.Process):
         
         self.message_bus.publish("event", response)
 
-    def emit_message(self, message_type: str, buy_order: Order, sell_order=None, trade_quantity=None) -> None:
+    def emit_message(self, message_type: str, buy_order: Order, sell_order: Order=None, trade_quantity=None) -> None:
 
-        response = ""
+
         if message_type == "Trade":
-            if trade_quantity > 0:
-                response = f"Trade: Buy Order {buy_order.order_id} ({buy_order.side}) and Sell Order {sell_order.order_id} ({sell_order.side}) - Quantity: {trade_quantity}, Price: {sell_order.price}"
+            # publih a message for a trade event
+            response = TradeEvent(buy_order.price, trade_quantity)
+            self.message_bus.publish("event", response)
         
-        elif message_type == "OrderFullyFilled":
-            response = f"Order {buy_order.order_id} ({buy_order.side}) fully filled at price {buy_order.price}"
+        if message_type == "OrderFullyFilled":
+            # Publish a message for the fully filled order
+            response = OrderFullyFilled(buy_order.order_id)
+            self.message_bus.publish("event", response)
+            
         
         elif message_type == "OrderPartiallyFilled":
-            response = f"Order {buy_order.order_id} ({buy_order.side}) partially filled at price {buy_order.price}. Remaining quantity: {buy_order.quantity}"
+            # Publish a message for the buy order partial fill
+            response = OrderPartiallyFilled(order_id=buy_order.order_id, remaining_quantity=buy_order.quantity)            
+            self.message_bus.publish("event", response)
 
-        self.message_bus.publish("event", response)
+            # Publish a message for the sell order partial full
+            response = OrderPartiallyFilled(order_id=sell_order.order_id, remaining_quantity=sell_order.quantity)
+            self.message_bus.publish("event", response)
+        
+
+    def next_order_id(self) -> int:
+        return len(self.order_book.asks) + len(self.order_book.bids)
+
