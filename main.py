@@ -6,6 +6,7 @@ import random
 import sys
 import argparse
 from typing import Union, Any, List
+# requests
 from engine.requests.add_order_request import AddOrderRequest
 from engine.requests.cancel_order_request import CancelOrderRequest
 from engine.requests.order_book_snapshot_request import OrderBookSnapshotRequest
@@ -176,6 +177,17 @@ class Driver:
             time.sleep(self.delay)
 
     def print_event(self, message: Union[TradeEvent, OrderPartiallyFilled, OrderFullyFilled, OrderBookSnapshot]) -> None:
+        """
+        Prints the message coming from the event bus in a readable format.
+
+        Args:
+            message (Union[TradeEvent, OrderPartiallyFilled, OrderFullyFilled, OrderBookSnapshot]):
+                The message type to print from the message_bus event channel.
+
+        Returns:
+            None
+        """
+        
         if isinstance(message, TradeEvent):
             print(f"[TRADE] price: {message.price}, quantity: {message.quantity})")
         if isinstance(message, OrderCancelEvent):
@@ -186,10 +198,18 @@ class Driver:
             print(f"[FULL_FILL]: order_id {message.order_id}")
         elif isinstance(message, OrderBookSnapshot):
             print(f"[BOOK_SNAPSHOT]: \n{message.snapshot}")
+        else: 
+            raise TypeError("incorrect message type")
 
 
 
-def main():
+def main() -> None:
+    """
+    Entry point for the program.
+
+    Returns:
+        None
+    """
 
     parser = argparse.ArgumentParser(description="Driver program for Matching Engine. \nRun 'python3 main.py --test buy_partial' for base example")
     
