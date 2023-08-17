@@ -1,1 +1,8 @@
+# Python cache files
 **/__pycache__/
+
+# Python virtual environment
+/virtualenv/
+
+# Node Modules 
+**/node_modules/
